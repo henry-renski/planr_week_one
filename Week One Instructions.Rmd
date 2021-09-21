@@ -1,7 +1,6 @@
 ---
 title: "R for Planning. Week One"
 author: "Henry Renski"
-date: "9/18/2021"
 output: html_document
 ---
 
@@ -15,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Our objective for today is to simply get a feel for R and the R Studio interface. Today we will run through some of the basic features in R in what is a very common type of project workflow. In today's exercise we will do the following:
 
-1.  Exploring the R Studio interface
+1.  Explore the R Studio interface
 
 2.  Install and load the packages
 
@@ -23,17 +22,15 @@ Our objective for today is to simply get a feel for R and the R Studio interface
 
 4.  Format the data and calculate some summary statistics
 
-5.  Display some of our results in a formatted Table
+5.  Make a map showing the spatial distribution of some variables
 
 6.  Make and format some descriptive charts
-
-7.  Make a map showing the spatial distribution of some variables
 
 I'll be proving the code for you to run. Its OK if you don't understand what we are doing. Over the course of the semester, we will be exploring these (and other) functions in much greater detail.
 
 Note: I have written these instructions is a package called R Markdown, which makes nice documents that allow you to interweave narrative, code and charts. This is referred to as literate coding or literate programming.
 
-### 1: Exploring the R Studio Interface
+### Explore the R Studio Interface
 
 Let's look at the four windows in R.
 
@@ -47,7 +44,7 @@ The gray chunk below is a code block. You can issue simple commands into the con
 
 Open a new "R script" file.
 
-### 2: Install and load packages
+### Install and load packages
 
 While everything can be done in R's base code, most people use a variety of "packages" for analysis. Packages are blocks of code written by other users. You have to install the packages (and then load) the you want to use each time you run code. There are thousands upon thousands of packages in R, and they all have their on syntax and grammar. However, there are some packages that you wind up using all the time, and those once you master those few you will be fine.
 
@@ -55,7 +52,7 @@ Let's load the packages you will need for today.
 
 Open a new "R script" file. Then copy and paste the following code into the file. Then highlight and run the code.
 
-```{r set up, eval=FALSE}
+```{r install, eval=FALSE, message=FALSE, warning=TRUE}
 
 #code below to install packages
 install.packages("tidyverse")  #suite including many of the best data munipilation and visualization functions
@@ -64,107 +61,100 @@ install.packages("tidycensus")  #pulls ACS data off the census bureau API, works
 
 install.packages("tigris")      #pulls GIS files directly from census TIGER server, integrated with tidycensus
 
-install.packages("viridis")   #includes some pre-fabbed color scheme for mapping
 ```
 
 Packages typically only need to be installed one time (per computer). However, your desired packages will need to be "loaded" each time you start a new R session. The next code chunk loads the required packages.
 
-```{r, eval=false}
+```{r libraries, echo=TRUE, message=FALSE, warning=FALSE}
 
 library(tidyverse)
 library(tidycensus)
 library(tigris)
-library(viridis)
 
 ```
 
 We can see if the package was loaded in the lower right window and choosing the "Packages" tab.
 
-## Accessing Data through the Census API
+### Accessing Data through the Census API
 
 Rather than download data onto your computer, why not work with it directly from the Census Bureau's servers? That's the point behind working with an API. We will use the **tidycensus** package to access the American Community Survey API and the associated **tigris** package to access the spatial files (for mapping).
 
 To get started working with **tidycensus**, users must first get a Census API key. The API key is like a password that you need to access census data. A key can be obtained from [\<http://api.census.gov/data/key_signup.html\>](http://api.census.gov/data/key_signup.html){.uri}. You only need to sign up for it once, as long as you store the code in a place you remember for future use.
 
-```{r}
+```{r APIkey, eval=FALSE, message=FALSE, warning=FALSE}
 
 census_api_key("YOUR API KEY GOES HERE")
 
-#census_api_key("9eac35e5489829fedcaaf690f14d2ec112dd69ab")
+# census_api_key("9eac35e5489829fedcaaf690f14d2ec112dd69ab")
 ```
 
-Let's download income data for Massachusetts Census from the most recent 5 year ACS.
+Let's get data on household income data for Massachusetts Census Tracts using the TidyCensus Package to access the Census API. You don't even need to save it to your computer. It runs straight off the Census Bureau API servers.
 
-```{r}
+Note: TidyCensus is just one of many packages. It makes getting Census data a snap, but it only covers a small number of census data products. The censusapi package is more comprehensive, but more difficult to use.
+
+```{r API, eval=FALSE, message=FALSE, warning=FALSE}
 MA.tract.inc <- get_acs(geography = "tract", variables = "B19013_001",
                 state = "MA", geometry = TRUE)
 
-
-MA.tract.inc <- get_acs(geography = "tract", variables = "B19013_001",
-                state = "MA")
 ```
 
-Note: the geometry=TRUE option downloads GIS files along with the data.
+The geometry=TRUE option downloads spatial files along with the income data.
 
-Let's look at the dataset from the environment window,
+Let's look at the data set from the environment window in R studio.
 
 ### Calculating Summary Statistics using dplyr (part of tidyverse)
 
-Let's calculate the mean and median of tract-level income. We will then store these variables in objects for future access.
+Let's calculate the mean and median of tract-level income. We will then store these variables as objects (called mean and median) for future use
 
-```{r}
-mean <- as.data.frame(MA.tract.inc) %>% 
-  summarise(mean_inc = mean(estimate, na.rm=TRUE))
+```{r summary, eval=FALSE, message=FALSE, warning=FALSE}
+mean <- as.numeric(as.data.frame(MA.tract.inc) %>% 
+  summarise(mean_inc = mean(estimate, na.rm=TRUE)))
 
-median <- as.data.frame(MA.tract.inc) %>% 
-  summarise(mean_inc = median(estimate, na.rm=TRUE))
+mean <- round(mean,digits = 0)
+
+median <- as.numeric(as.data.frame(MA.tract.inc) %>% 
+  summarise(mean_inc = median(estimate, na.rm=TRUE)))
 
 ```
 
-### Making Charts and Graphs using ggplot2 (part of tidyverse)
+Note that the mean and median have now been added as "Values" in the environment. 
 
-Mapping Data
+### Making Maps using ggplot2 with tigris
 
-Let's map the data
+Let's map the data! This works because the tidycensus package allows us to grab the corresponding spatial data from Tiger (via the tigris package). Most times we have to download the spatial data separately and join it ourselves (just like in GIS).
 
-```{r}
+```{r map, eval=FALSE, message=FALSE, warning=FALSE}
 
 ggplot(MA.tract.inc, aes(fill = estimate, color = estimate)) +
-  geom_sf() +
-  coord_sf(crs = 26987) +
-  scale_fill_viridis(option = "viridis", direction=-1) +
-  scale_color_viridis(option = "viridis", direction=-1) 
-
-
-```
-
-Let's create a histogram of the distribution of incomes by tract
-
-```{r}
-ggplot(JTW) + geom_histogram(mapping = aes(x = Home_per), bins=10)
+   geom_sf() +
+   coord_sf(crs = 26987) +
+   scale_fill_gradient(low="#E2F8FB",high="#0A4249") +
+   scale_color_gradient(low="#E2F8FB",high="#0A4249") +
+   labs(title="Median Household Income by Census Tract")
 
 ```
 
-Let's calculate the mean and the median
+If we have time later we can play with some different color schemes using an online color wheel.
 
-Let's download income data for Massachusetts Census from the most recent 5 year ACS.
+### Making Charts and Graphs using ggplot2
 
-```{r cars}
-  
-mutate(NAME = gsub(" County, Vermont", "", NAME)) %>%
- ggplot(aes(x = estimate, y = reorder(NAME, estimate))) +
-  geom_errorbarh(aes(xmin = estimate - moe, xmax = estimate + moe)) +
-  geom_point(color = "red", size = 3) +
-  labs(title = "Household income by county in Vermont",
-       subtitle = "2015-2019 American Community Survey",
-       y = "",
-       x = "ACS estimate (bars represent margin of error)")
+For our final exploration, let's create a histogram that shows distribution of tract-level incomes.  We will also annotate the chart with the overall mean and median values we calculated earlier.
 
+```{r chart, eval=FALSE, message=FALSE, warning=FALSE}
 
+options(scipen=999)  ##removes scientific notion
+
+ggplot(MA.tract.inc, aes(x = estimate)) + geom_histogram(bins=16, fill="#1AB3C7", color="#0C5059") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_discrete(name ="Median Household Income", 
+                    limits=c(0,50000,100000,150000,200000,250000)) +
+    labs(title="Distribution of Median Household Incomes by Census Tract",
+         y="Number of Tracts") +
+    annotate("text", x=200000, y=c(300,280), 
+             label=c(paste("Mean Income = ", mean),paste("Median Income = ", median)))
+                                                  
 ```
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+That's all for our quick Intro to R. 
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Don't worry if you feel lost. In the weeks ahead we will go into more detail and depth on how to use R for data analysis.
